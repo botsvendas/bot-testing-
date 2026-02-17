@@ -2,12 +2,19 @@ import os
 import discord
 from discord.ext import commands
 from groq import Groq
+import replicate
 
+# ===== TOKENS =====
 TOKEN = os.getenv("TOKEN")
 GROQ_KEY = os.getenv("GROQ_KEY")
+REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
 
+os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
+
+# ===== IA TEXTO (Groq) =====
 client_ai = Groq(api_key=GROQ_KEY)
 
+# ===== DISCORD =====
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -17,6 +24,9 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print(f"✅ Bot online como {bot.user}")
 
+# ===============================
+# COMANDO IA TEXTO
+# ===============================
 @bot.command()
 async def ia(ctx, *, pergunta):
     try:
@@ -34,5 +44,25 @@ async def ia(ctx, *, pergunta):
         await ctx.send("❌ Erro ao falar com a IA.")
         print(e)
 
-bot.run(TOKEN)
+# ===============================
+# COMANDO GERAR IMAGEM
+# ===============================
+@bot.command()
+async def img(ctx, *, prompt):
+    try:
+        await ctx.send("🎨 Gerando imagem... aguarde")
 
+        output = replicate.run(
+            "stability-ai/sdxl",
+            input={"prompt": prompt}
+        )
+
+        image_url = output[0]
+
+        await ctx.send(image_url)
+
+    except Exception as e:
+        await ctx.send("❌ Erro ao gerar imagem.")
+        print(e)
+
+bot.run(TOKEN)
