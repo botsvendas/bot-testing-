@@ -42,7 +42,7 @@ async def ia(ctx, *, pergunta):
 
     except Exception as e:
         await ctx.send("❌ Erro ao falar com a IA.")
-        print(e)
+        print("ERRO IA:", e)
 
 # ===============================
 # COMANDO GERAR IMAGEM
@@ -53,8 +53,13 @@ async def img(ctx, *, prompt):
         await ctx.send("🎨 Gerando imagem... aguarde")
 
         output = replicate.run(
-            "stability-ai/sdxl",
-            input={"prompt": prompt}
+            "stability-ai/stable-diffusion-xl-base-1.0:latest",
+            input={
+                "prompt": prompt,
+                "width": 1024,
+                "height": 1024,
+                "num_outputs": 1
+            }
         )
 
         image_url = output[0]
@@ -63,6 +68,6 @@ async def img(ctx, *, prompt):
 
     except Exception as e:
         await ctx.send("❌ Erro ao gerar imagem.")
-        print(e)
+        print("ERRO IMG:", e)
 
 bot.run(TOKEN)
