@@ -2,14 +2,13 @@ import os
 import discord
 from discord.ext import commands
 from groq import Groq
-import replicate
+import requests
+import time
 
 # ===== TOKENS =====
 TOKEN = os.getenv("TOKEN")
 GROQ_KEY = os.getenv("GROQ_KEY")
-REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
-
-os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
+HORDE_KEY = os.getenv("STABLE_HORDE_KEY")
 
 # ===== IA TEXTO (Groq) =====
 client_ai = Groq(api_key=GROQ_KEY)
@@ -37,34 +36,55 @@ async def ia(ctx, *, pergunta):
                 {"role": "user", "content": pergunta}
             ]
         )
-
         await ctx.send(resposta.choices[0].message.content)
-
     except Exception as e:
         await ctx.send("❌ Erro ao falar com a IA.")
         print("ERRO IA:", e)
 
 # ===============================
-# COMANDO GERAR IMAGEM
+# COMANDO GERAR IMAGEM (Stable Horde)
 # ===============================
 @bot.command()
 async def img(ctx, *, prompt):
     try:
-        await ctx.send("🎨 Gerando imagem... aguarde")
+        await ctx.send("🎨 Gerando imagem... pode demorar um pouco")
 
-        output = replicate.run(
-            "stability-ai/stable-diffusion-xl-base-1.0:latest",
-            input={
-                "prompt": prompt,
-                "width": 1024,
-                "height": 1024,
-                "num_outputs": 1
+        headers = {
+            "apikey": HORDE_KEY,
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "prompt": prompt,
+            "params": {
+                "width": 512,
+                "height": 512,
+                "steps": 25
             }
+        }
+
+        # Envia pedido
+        response = requests.post(
+            "https://stablehorde.net/api/v2/generate/async",
+            headers=headers,
+            json=data
         )
 
-        image_url = output[0]
+        request_id = response.json()["id"]
 
-        await ctx.send(image_url)
+        # Espera imagem ficar pronta
+        while True:
+            check = requests.get(
+                f"https://stablehorde.net/api/v2/generate/status/{request_id}",
+                headers=headers
+            ).json()
+
+            if check["done"]:
+                image_url = check["generations"][0]["img"]
+                await ctx.send(image_url)
+                break
+
+            time.sleep(3)
 
     except Exception as e:
         await ctx.send("❌ Erro ao gerar imagem.")
