@@ -1,99 +1,69 @@
 import os
+import base64
 import discord
 from discord.ext import commands
-from groq import Groq
-import requests
-import time
+from openai import OpenAI
 
-# ===== TOKENS =====
-TOKEN = os.getenv("TOKEN")
-GROQ_KEY = os.getenv("GROQ_KEY")
-HORDE_KEY = os.getenv("STABLE_HORDE_KEY")
+# ==============================
+# CONFIGURAÇÕES
+# ==============================
 
-# ===== IA TEXTO (Groq) =====
-client_ai = Groq(api_key=GROQ_KEY)
+TOKEN = os.getenv("DISCORD_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# ===== DISCORD =====
+if not TOKEN:
+    raise ValueError("DISCORD_TOKEN não configurado.")
+
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY não configurado.")
+
+client = OpenAI(api_key=OPENAI_API_KEY)
+
 intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# ==============================
+# EVENTOS
+# ==============================
+
 @bot.event
 async def on_ready():
     print(f"✅ Bot online como {bot.user}")
 
-# ===============================
-# COMANDO IA TEXTO
-# ===============================
+# ==============================
+# COMANDO DE IMAGEM
+# ==============================
+
 @bot.command()
-async def ia(ctx, *, pergunta):
+async def img(ctx, *, prompt: str):
+    await ctx.send("🎨 Gerando imagem... aguarde...")
+
     try:
-        resposta = client_ai.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": "Você é um assistente inteligente e amigável."},
-                {"role": "user", "content": pergunta}
-            ]
-        )
-        await ctx.send(resposta.choices[0].message.content)
-    except Exception as e:
-        await ctx.send("❌ Erro ao falar com a IA.")
-        print("ERRO IA:", e)
-
-# ===============================
-# COMANDO GERAR IMAGEM (Stable Horde)
-# ===============================
-@bot.command()
-async def img(ctx, *, prompt):
-    try:
-        await ctx.send("🎨 Gerando imagem... pode demorar")
-
-        headers = {
-            "apikey": HORDE_KEY,
-            "Client-Agent": "discord-bot:1.0",
-            "Content-Type": "application/json"
-        }
-
-        data = {
-            "prompt": prompt,
-            "params": {
-                "width": 512,
-                "height": 512,
-                "steps": 20
-            }
-        }
-
-        response = requests.post(
-            "https://stablehorde.net/api/v2/generate/async",
-            headers=headers,
-            json=data
+        result = client.images.generate(
+            model="gpt-image-1",
+            prompt=prompt,
+            size="1024x1024"
         )
 
-        result = response.json()
+        image_base64 = result.data[0].b64_json
+        image_bytes = base64.b64decode(image_base64)
 
-        if "id" not in result:
-            print("RESPOSTA REAL:", result)
-            await ctx.send("❌ Erro na resposta da API.")
-            return
+        file_path = "generated.png"
 
-        request_id = result["id"]
+        with open(file_path, "wb") as f:
+            f.write(image_bytes)
 
-        while True:
-            check = requests.get(
-                f"https://stablehorde.net/api/v2/generate/status/{request_id}",
-                headers=headers
-            ).json()
+        await ctx.send(file=discord.File(file_path))
 
-            if check.get("done"):
-                image_url = check["generations"][0]["img"]
-                await ctx.send(image_url)
-                break
-
-            time.sleep(3)
+        os.remove(file_path)
 
     except Exception as e:
-        await ctx.send("❌ Erro ao gerar imagem.")
-        print("ERRO REAL IMG:", e)
+        await ctx.send(f"❌ Erro ao gerar imagem:\n{e}")
+
+# ==============================
+# START
+# ==============================
 
 bot.run(TOKEN)
