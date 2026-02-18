@@ -47,10 +47,11 @@ async def ia(ctx, *, pergunta):
 @bot.command()
 async def img(ctx, *, prompt):
     try:
-        await ctx.send("🎨 Gerando imagem... pode demorar um pouco")
+        await ctx.send("🎨 Gerando imagem... pode demorar")
 
         headers = {
             "apikey": HORDE_KEY,
+            "Client-Agent": "discord-bot:1.0",
             "Content-Type": "application/json"
         }
 
@@ -59,27 +60,32 @@ async def img(ctx, *, prompt):
             "params": {
                 "width": 512,
                 "height": 512,
-                "steps": 25
+                "steps": 20
             }
         }
 
-        # Envia pedido
         response = requests.post(
             "https://stablehorde.net/api/v2/generate/async",
             headers=headers,
             json=data
         )
 
-        request_id = response.json()["id"]
+        result = response.json()
 
-        # Espera imagem ficar pronta
+        if "id" not in result:
+            print("RESPOSTA REAL:", result)
+            await ctx.send("❌ Erro na resposta da API.")
+            return
+
+        request_id = result["id"]
+
         while True:
             check = requests.get(
                 f"https://stablehorde.net/api/v2/generate/status/{request_id}",
                 headers=headers
             ).json()
 
-            if check["done"]:
+            if check.get("done"):
                 image_url = check["generations"][0]["img"]
                 await ctx.send(image_url)
                 break
@@ -88,6 +94,6 @@ async def img(ctx, *, prompt):
 
     except Exception as e:
         await ctx.send("❌ Erro ao gerar imagem.")
-        print("ERRO IMG:", e)
+        print("ERRO REAL IMG:", e)
 
 bot.run(TOKEN)
