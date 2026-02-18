@@ -53,7 +53,7 @@ async def responder_ia(ctx, pergunta):
     ] + memoria[ctx.author.id]
 
     response = client.chat.completions.create(
-        model="llama3-70b-8192",
+        model="llama-3.1-70b-versatile",
         messages=messages,
         temperature=0.7,
         max_tokens=800
@@ -188,3 +188,4 @@ async def ban(ctx, member: discord.Member, *, reason=None):
 # ==============================
 
 bot.run(TOKEN)
+
